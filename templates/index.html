@@ -1,0 +1,12 @@
+Tabela 13 — Movimento de Câmbio Contratado (BCB)  US$ milhões
+Soma dos últimos
+5
+dias
+{% if data.last_updated %}Atualizado em {{ data.last_updated }}{% endif %}
+{% if data.header_cells and data.rows %} {% for hrow in data.header_cells %} {% for cell in hrow %} {% endfor %} {% endfor %} {% for row in data.rows %} {% for cell in row.cells %} {% endfor %} {% endfor %} {% for i in range(data.n_cols) %} {% endfor %}
+1 %}colspan="{{ cell.colspan }}"{% endif %} {% if cell.rowspan > 1 %}rowspan="{{ cell.rowspan }}"{% endif %} >{{ cell.text }}
+{{ cell }}
+{% if i == 0 %}Soma{% endif %}
+{% else %}
+Nenhum dado disponível.
+{% endif %}
