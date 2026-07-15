@@ -65,12 +65,17 @@ def main():
     if initial > 0:
         time.sleep(initial)
 
+    got_valid = False   # True se em alguma tentativa baixou E validou (mesmo sem novidade)
     for i in range(1, attempts + 1):
         print(f'Tentativa {i}/{attempts}...', flush=True)
+        data = None
         try:
             data = bcb_fetch._parse_sheet(bcb_fetch._download_excel())
+            report = bcb_fetch.validate_parsed(data)   # trava anti-layout-quebrado
+            print(f'  validação OK: {report}', flush=True)
+            got_valid = True
         except Exception as e:
-            print(f'  erro no download: {e}', flush=True)
+            print(f'  falhou (download/validação): {e}', flush=True)
             data = None
 
         if data is not None:
@@ -87,8 +92,11 @@ def main():
             print(f'  aguardando {interval}s...', flush=True)
             time.sleep(interval)
 
-    print('Nenhum dado novo na janela de tentativas.', flush=True)
-    return 2
+    if got_valid:
+        print('Nenhum dado novo na janela de tentativas.', flush=True)
+        return 2
+    print('ERRO: nenhuma tentativa produziu dado válido (download ou validação).', flush=True)
+    return 1
 
 
 if __name__ == '__main__':
