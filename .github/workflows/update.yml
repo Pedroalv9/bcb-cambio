@@ -2,8 +2,20 @@ name: Atualizar Dados BCB
 
 on:
   schedule:
-    - cron: '30 17 * * *'
-  workflow_dispatch:
+    # Horário de Brasília = UTC-3, então 14:30 BRT = 17:30 UTC.
+    # OBS: o cron do GitHub tem intervalo MÍNIMO de 5 min e não é preciso ao segundo,
+    # por isso o retry a cada minuto (14:30:05 -> 14:35:05) é feito DENTRO do job,
+    # pelo auto_update.py. Aqui só disparamos o job.
+    # Quarta (dia-da-semana 3) e quinta (4). O :45 é uma rede de segurança caso o
+    # agendamento das 14:30 atrase muito ou seja descartado pelo GitHub sob carga.
+    - cron: '30 17 * * 3,4'
+    - cron: '45 17 * * 3,4'
+  workflow_dispatch:            # rodar manualmente pelo GitHub (aba Actions -> Run workflow)
+
+# Serializa execuções (evita corrida de push entre o disparo das :30 e o backup das :45).
+concurrency:
+  group: atualizar-dados-bcb
+  cancel-in-progress: false
 
 jobs:
   update:
@@ -21,13 +33,34 @@ jobs:
       - name: Instalar dependências
         run: pip install -r requirements.txt
 
-      - name: Gerar HTML
-        run: python generate.py
+      - name: Buscar dados (retry por minuto) e gerar HTML
+        id: update
+        env:
+          MAX_ATTEMPTS: '6'      # 14:30:05 -> 14:35:05
+          RETRY_INTERVAL: '60'
+          INITIAL_DELAY: '5'
+        run: |
+          set +e
+          python auto_update.py
+          echo "code=$?" >> "$GITHUB_OUTPUT"
+          set -e
 
-      - name: Publicar se houve mudança
+      - name: Publicar
+        if: steps.update.outputs.code == '0'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add docs/index.html data/cambio_data.json
-          git diff --staged --quiet || git commit -m "Atualizar dados BCB $(date -u '+%d/%m/%Y %H:%M UTC')"
+          git commit -m "Atualizar dados BCB $(date -u '+%d/%m/%Y %H:%M UTC')"
+          git pull --rebase --autostash
           git push
+
+      - name: Sem dado novo
+        if: steps.update.outputs.code == '2'
+        run: echo "Nenhum dado novo nesta janela — nada publicado."
+
+      - name: Falha
+        if: steps.update.outputs.code != '0' && steps.update.outputs.code != '2'
+        run: |
+          echo "auto_update.py falhou (exit ${{ steps.update.outputs.code }})."
+          exit 1

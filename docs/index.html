@@ -4,25 +4,77 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Movimento de Câmbio Contratado — BCB</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f6f9; color: #222; padding: 24px; }
-    header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+    header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
     h1 { font-size: 1.2rem; font-weight: 600; color: #1a3a5c; }
     .controls { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
     .range-control { display: flex; align-items: center; gap: 8px; background: #fff; border: 1px solid #dde2ea; border-radius: 6px; padding: 6px 12px; font-size: 0.88rem; }
     .range-control label { color: #555; }
     .range-control input { width: 56px; border: 1px solid #bcc5d3; border-radius: 4px; padding: 3px 6px; font-size: 0.88rem; text-align: center; }
     #status { font-size: 0.8rem; color: #666; }
-    .table-wrap { overflow-x: auto; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
-    table { border-collapse: collapse; width: 100%; background: #fff; font-size: 0.82rem; }
-    thead th { background: #1a3a5c; color: #fff; padding: 5px 8px; text-align: center; white-space: nowrap; font-weight: 600; border: 1px solid #254e7a; position: sticky; top: 0; z-index: 2; }
-    td { padding: 4px 8px; border-bottom: 1px solid #e8ecf1; white-space: nowrap; }
-    td:first-child { text-align: left; min-width: 90px; }
-    td:not(:first-child) { text-align: right; min-width: 72px; max-width: 90px; }
+
+    /* Tabs */
+    .tab-bar { display: flex; gap: 4px; margin-bottom: 16px; }
+    .tab-btn {
+      padding: 7px 20px; font-size: 0.88rem; font-weight: 600; cursor: pointer;
+      border: 1px solid #dde2ea; border-radius: 6px 6px 0 0; background: #e8ecf1; color: #555;
+      transition: background 0.15s;
+    }
+    .tab-btn.active { background: #1a3a5c; color: #fff; border-color: #1a3a5c; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* Chart */
+    .chart-wrap { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); padding: 24px; }
+
+    /* Table */
+    .table-wrap { overflow-x: auto; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); display: inline-block; max-width: 100%; }
+    .table-wrap.capturing { overflow: visible; box-shadow: none; }
+    .table-wrap.capturing thead th { position: static; }
+    table { border-collapse: collapse; width: auto; background: #fff; font-size: 0.86rem; }
+    thead th { background: #1a3a5c; color: #fff; padding: 5px 9px; text-align: center; white-space: nowrap; font-weight: 600; font-size: 0.8rem; border: 1px solid #254e7a; position: sticky; top: 0; z-index: 2; }
+    td { padding: 5px 9px; border-bottom: 1px solid #e8ecf1; white-space: nowrap; }
+    td:first-child { text-align: left; }
+    td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+    .copy-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .copy-btn { padding: 7px 16px; font-size: 0.88rem; font-weight: 600; border: 1px solid #1a3a5c; border-radius: 6px; background: #1a3a5c; color: #fff; cursor: pointer; transition: background 0.15s; }
+    .copy-btn:hover { background: #254e7a; }
+    .copy-btn:disabled { opacity: 0.6; cursor: default; }
+    .copy-btn.secondary { background: #f0f3f7; color: #1a3a5c; border-color: #bcc5d3; }
+    .copy-btn.secondary:hover { background: #e2e8f0; }
+    .copy-status { font-size: 0.83rem; color: #666; }
+    .copy-status.ok { color: #27ae60; }
+    .copy-status.err { color: #c0392b; }
+    .tabela-layout { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; }
+    .tabela-layout .table-wrap { min-width: 0; }
+    .summary-card { flex: 0 0 250px; background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); padding: 18px 20px; }
+    .summary-flow { font-size: 0.98rem; line-height: 1.45; color: #333; padding-bottom: 14px; margin-bottom: 14px; border-bottom: 1px solid #e8ecf1; }
+    .summary-flow .dir { font-weight: 700; }
+    .summary-flow strong { color: #1a3a5c; }
+    .summary-points { list-style: none; display: flex; flex-direction: column; gap: 11px; }
+    .summary-points li { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 0.9rem; }
+    .summary-points .pt-label { color: #666; }
+    .summary-points .val { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .val.pos { color: #1e8e3e; }
+    .val.neg { color: #c0392b; }
+    .dir.pos { color: #1e8e3e; }
+    .dir.neg { color: #c0392b; }
+    .chart-controls { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; margin-bottom: 16px; font-size: 0.85rem; color: #555; }
+    .stat-group { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .chart-copy { display: flex; align-items: center; gap: 12px; margin-left: auto; }
     tr.annual td { color: #333; }
+    tr.annual-current td { color: #333; font-weight: 700; background: #fff; }
     tr.monthly td { font-weight: 700; background: #edf2f8; }
     tr.monthly:hover td { background: #dce7f3; }
+    tr.monthly .month-cell { cursor: pointer; user-select: none; white-space: nowrap; }
+    .month-toggle { display: inline-block; width: 0.85em; margin-right: 5px; color: #1a3a5c; font-size: 0.75em; transition: transform 0.15s; }
+    tr.monthly.collapsed .month-toggle { transform: rotate(-90deg); }
+    .month-toggle.empty { visibility: hidden; }
+    tr.daily.hidden-row { display: none; }
     tr.daily td { font-style: italic; color: #444; }
     tr.daily td:first-child { font-style: normal; color: #333; }
     tr.daily:nth-child(even) td { background: #f7f9fc; }
@@ -35,6 +87,9 @@
     tfoot td:first-child { text-align: left; }
     tfoot td:not(:first-child) { text-align: right; }
     .empty-msg { text-align: center; padding: 48px; color: #888; font-size: 1rem; background: #fff; border-radius: 8px; }
+    .toggle-stat { padding: 4px 14px; font-size: 0.82rem; font-weight: 600; border: 1px solid #bcc5d3; border-radius: 4px; background: #f0f3f7; color: #555; cursor: pointer; }
+    .toggle-stat.active { background: #1a3a5c; color: #fff; border-color: #1a3a5c; }
+    #status.ok { color: #27ae60; }
   </style>
 </head>
 <body>
@@ -44,7 +99,7 @@
     <span style="font-weight:400;font-size:0.85rem;color:#888;">&nbsp;US$ milhões</span>
   </h1>
   <div class="controls">
-    <div class="range-control">
+    <div class="range-control" id="range-control">
       <label for="range-input">Soma dos últimos</label>
       <input type="number" id="range-input" value="5" min="1" max="9999" />
       <span>dias</span>
@@ -53,56 +108,372 @@
   </div>
 </header>
 
-<div class="table-wrap">
-  
-<table id="main-table">
-  <thead>
-    <tr><th></th><th colspan="6">Comercial</th><th colspan="3">Financeiro³/</th><th rowspan="2">Saldo</th></tr>
+<div class="tab-bar">
+  <button class="tab-btn active" data-tab="tabela">Tabela</button>
+  <button class="tab-btn" data-tab="sazonalidade">Sazonalidade</button>
+</div>
+
+<div id="tab-tabela" class="tab-panel active">
+  <div class="copy-bar">
+    <button id="copy-msg-btn" class="copy-btn">📋 Copiar mensagem (imagem + texto)</button>
+    <button id="copy-btn" class="copy-btn secondary">🖼️ Só imagem</button>
+    <button id="copy-text-btn" class="copy-btn secondary">📝 Só texto</button>
+    <span id="copy-status" class="copy-status"></span>
+  </div>
+  <div class="tabela-layout" id="tabela-capture">
+    <div class="table-wrap">
+      <table id="main-table">
+  <thead><tr><th></th><th colspan="6">Comercial</th><th colspan="3">Financeiro³/</th><th rowspan="2">Saldo</th></tr>
 <tr><th></th><th colspan="4">Exportação de bens</th><th>Importação</th><th>Saldo</th><th rowspan="2">Compras</th><th rowspan="2">Vendas</th><th>Saldo</th></tr>
-<tr><th>Período</th><th>Total</th><th>ACC</th><th>PA</th><th>Demais</th><th>de bens</th><th>(a)</th><th>(b)</th><th>c = (a+b)</th></tr>
-  </thead>
-  <tbody id="tbody">
-    <tr class="annual"><td>2017</td><td>195.581</td><td>28.506</td><td>53.832</td><td>113.243</td><td>142.405</td><td>53.176</td><td>482.755</td><td>535.306</td><td>-52.551</td><td>625</td></tr>
-<tr class="annual"><td>2018</td><td>226.813</td><td>34.173</td><td>74.912</td><td>117.728</td><td>177.446</td><td>49.367</td><td>524.662</td><td>575.024</td><td>-50.362</td><td>-995</td></tr>
-<tr class="annual"><td>2019</td><td>196.376</td><td>32.020</td><td>57.560</td><td>106.797</td><td>175.353</td><td>21.024</td><td>560.755</td><td>626.547</td><td>-65.792</td><td>-44.768</td></tr>
-<tr class="annual"><td>2020</td><td>192.310</td><td>23.745</td><td>68.761</td><td>99.804</td><td>165.453</td><td>26.857</td><td>485.131</td><td>539.911</td><td>-54.780</td><td>-27.923</td></tr>
+<tr><th>Período</th><th>Total</th><th>ACC</th><th>PA</th><th>Demais</th><th>de bens</th><th>(a)</th><th>(b)</th><th>c = (a+b)</th></tr></thead>
+  <tbody id="tbody"><tr class="annual"><td>2020</td><td>192.310</td><td>23.745</td><td>68.761</td><td>99.804</td><td>165.453</td><td>26.857</td><td>485.131</td><td>539.911</td><td>-54.780</td><td>-27.923</td></tr>
 <tr class="annual"><td>2021</td><td>225.180</td><td>28.407</td><td>53.357</td><td>143.416</td><td>209.959</td><td>15.221</td><td>540.785</td><td>551.582</td><td>-10.797</td><td>4.423</td></tr>
 <tr class="annual"><td>2022</td><td>272.201</td><td>34.131</td><td>59.581</td><td>178.488</td><td>242.321</td><td>29.879</td><td>592.103</td><td>625.215</td><td>-33.112</td><td>-3.233</td></tr>
 <tr class="annual"><td>2023</td><td>280.973</td><td>31.450</td><td>64.635</td><td>184.888</td><td>219.853</td><td>61.120</td><td>601.197</td><td>650.825</td><td>-49.629</td><td>11.491</td></tr>
 <tr class="annual"><td>2024</td><td>300.079</td><td>33.193</td><td>73.941</td><td>192.945</td><td>231.048</td><td>69.031</td><td>592.336</td><td>679.932</td><td>-87.595</td><td>-18.564</td></tr>
 <tr class="annual"><td>2025</td><td>287.634</td><td>32.269</td><td>69.519</td><td>185.845</td><td>238.486</td><td>49.148</td><td>593.259</td><td>674.352</td><td>-81.093</td><td>-31.945</td></tr>
-<tr class="monthly"><td>jan-2026</td><td>19.623</td><td>2.349</td><td>3.729</td><td>13.545</td><td>20.778</td><td>-1.155</td><td>64.941</td><td>58.719</td><td>6.222</td><td>5.067</td></tr>
-<tr class="monthly"><td>fev-2026</td><td>19.096</td><td>2.477</td><td>3.346</td><td>13.272</td><td>16.579</td><td>2.516</td><td>52.917</td><td>50.044</td><td>2.873</td><td>5.389</td></tr>
-<tr class="monthly"><td>mar-2026</td><td>28.408</td><td>2.988</td><td>7.748</td><td>17.672</td><td>20.704</td><td>7.703</td><td>62.787</td><td>76.840</td><td>-14.054</td><td>-6.350</td></tr>
-<tr class="monthly"><td>abr-2026</td><td>28.517</td><td>2.796</td><td>8.018</td><td>17.702</td><td>21.928</td><td>6.588</td><td>62.000</td><td>59.387</td><td>2.613</td><td>9.202</td></tr>
-<tr class="monthly"><td>mai-2026</td><td>28.496</td><td>2.738</td><td>8.656</td><td>17.102</td><td>19.992</td><td>8.504</td><td>52.815</td><td>60.753</td><td>-7.938</td><td>565</td></tr>
-<tr class="monthly"><td>jun-2026</td><td>31.327</td><td>2.935</td><td>8.986</td><td>19.406</td><td>21.587</td><td>9.740</td><td>63.560</td><td>69.391</td><td>-5.831</td><td>3.909</td></tr>
-<tr class="monthly"><td>jul-2026</td><td>3.340</td><td>264</td><td>699</td><td>2.377</td><td>2.813</td><td>526</td><td>7.225</td><td>8.709</td><td>-1.484</td><td>-958</td></tr>
-<tr class="daily"><td>01/07/2026</td><td>1.427</td><td>113</td><td>174</td><td>1.140</td><td>950</td><td>477</td><td>3.392</td><td>3.511</td><td>-119</td><td>358</td></tr>
-<tr class="daily"><td>02/07/2026</td><td>1.056</td><td>98</td><td>247</td><td>711</td><td>860</td><td>195</td><td>2.558</td><td>3.476</td><td>-918</td><td>-723</td></tr>
-<tr class="daily"><td>03/07/2026</td><td>857</td><td>53</td><td>279</td><td>525</td><td>1.003</td><td>-146</td><td>1.275</td><td>1.722</td><td>-447</td><td>-593</td></tr>
-  </tbody>
-  <tfoot>
-    <tr id="sum-row"><td id="sum-0">Soma</td><td id="sum-1"></td><td id="sum-2"></td><td id="sum-3"></td><td id="sum-4"></td><td id="sum-5"></td><td id="sum-6"></td><td id="sum-7"></td><td id="sum-8"></td><td id="sum-9"></td><td id="sum-10"></td></tr>
-  </tfoot>
+<tr class="annual-current"><td>2026</td><td>158.805</td><td>16.548</td><td>41.182</td><td>101.076</td><td>124.382</td><td>34.423</td><td>366.245</td><td>383.844</td><td>-17.599</td><td>16.824</td></tr>
+<tr class="monthly collapsed" data-month="2026-01"><td class="month-cell"><span class="month-toggle">▾</span><span class="month-label">jan-2026</span></td><td>19.623</td><td>2.349</td><td>3.729</td><td>13.545</td><td>20.778</td><td>-1.155</td><td>64.941</td><td>58.719</td><td>6.222</td><td>5.067</td></tr>
+<tr class="daily hidden-row" data-month="2026-01"><td>02/01/2026</td><td>614</td><td>44</td><td>141</td><td>430</td><td>704</td><td>-90</td><td>4.346</td><td>3.187</td><td>1.159</td><td>1.069</td></tr>
+<tr class="daily hidden-row" data-month="2026-01"><td>05/01/2026</td><td>867</td><td>54</td><td>355</td><td>457</td><td>930</td><td>-63</td><td>2.765</td><td>2.849</td><td>-85</td><td>-148</td></tr>
+<tr class="daily hidden-row" data-month="2026-01"><td>06/01/2026</td><td>744</td><td>76</td><td>237</td><td>431</td><td>934</td><td>-190</td><td>2.147</td><td>3.178</td><td>-1.031</td><td>-1.221</td></tr>
+<tr class="daily hidden-row" data-month="2026-01"><td>07/01/2026</td><td>751</td><td>58</td><td>143</td><td>551</td><td>1.010</td><td>-258</td><td>2.661</td><td>2.486</td><td>175</td><td>-83</td></tr>
+<tr class="daily hidden-row" data-month="2026-01"><td>08/01/2026</td><td>817</td><td>75</td><td>151</td><td>591</td><td>908</td><td>-90</td><td>3.107</td><td>2.298</td><td>809</td><td>719</td></tr>
+<tr class="daily hidden-row" data-month="2026-01"><td>09/01/2026</td><td>689</td><td>151</td><td>80</td><td>458</td><td>1.054</td><td>-364</td><td>1.954</td><td>2.548</td><td>-595</td><td>-959</td></tr>
+<tr class="daily hidden-row" data-month="2026-01"><td>12/01/2026</td><td>783</td><td>152</td><td>114</td><td>517</td><td>821</td><td>-38</td><td>3.621</td><td>3.732</td><td>-111</td><td>-149</td></tr>
+<tr class="daily hidden-row" data-month="2026-01"><td>13/01/2026</td><td>928</td><td>120</td><td>97</td><td>711</td><td>713</td><td>215</td><td>2.787</td><td>2.157</td><td>630</td><td>845</td></tr>
+<tr class="daily hidden-row" data-month="2026-01"><td>14/01/2026</td><td>1.077</td><td>116</td><td>210</td><td>751</td><td>1.015</td><td>62</td><td>2.426</td><td>2.001</td><td>425</td><td>487</td></tr>
+<tr class="daily hidden-row" data-month="2026-01"><td>15/01/2026</td><td>714</td><td>84</td><td>113</td><td>517</td><td>1.103</td><td>-389</td><td>2.572</td><td>2.651</td><td>-79</td><td>-468</td></tr>
+<tr class="daily hidden-row" data-month="2026-01"><td>16/01/2026</td><td>678</td><td>135</td><td>76</td><td>467</td><td>856</td><td>-177</td><td>4.122</td><td>2.446</td><td>1.676</td><td>1.498</td></tr>
+<tr class="daily hidden-row" data-month="2026-01"><td>19/01/2026</td><td>571</td><td>66</td><td>157</td><td>348</td><td>857</td><td>-286</td><td>1.276</td><td>1.853</td><td>-577</td><td>-863</td></tr>
+<tr class="daily hidden-row" data-month="2026-01"><td>20/01/2026</td><td>1.119</td><td>74</td><td>300</td><td>746</td><td>945</td><td>175</td><td>2.210</td><td>2.609</td><td>-399</td><td>-225</td></tr>
+<tr class="daily hidden-row" data-month="2026-01"><td>21/01/2026</td><td>697</td><td>164</td><td>67</td><td>466</td><td>1.401</td><td>-704</td><td>2.865</td><td>2.491</td><td>374</td><td>-330</td></tr>
+<tr class="daily hidden-row" data-month="2026-01"><td>22/01/2026</td><td>1.011</td><td>38</td><td>150</td><td>824</td><td>1.215</td><td>-204</td><td>4.193</td><td>3.430</td><td>763</td><td>560</td></tr>
+<tr class="daily hidden-row" data-month="2026-01"><td>23/01/2026</td><td>801</td><td>102</td><td>114</td><td>585</td><td>1.000</td><td>-198</td><td>3.013</td><td>2.636</td><td>377</td><td>178</td></tr>
+<tr class="daily hidden-row" data-month="2026-01"><td>26/01/2026</td><td>947</td><td>41</td><td>140</td><td>767</td><td>1.134</td><td>-187</td><td>3.038</td><td>3.175</td><td>-137</td><td>-324</td></tr>
+<tr class="daily hidden-row" data-month="2026-01"><td>27/01/2026</td><td>1.498</td><td>200</td><td>333</td><td>965</td><td>1.297</td><td>201</td><td>2.716</td><td>2.848</td><td>-132</td><td>69</td></tr>
+<tr class="daily hidden-row" data-month="2026-01"><td>28/01/2026</td><td>1.822</td><td>211</td><td>319</td><td>1.292</td><td>1.494</td><td>328</td><td>4.951</td><td>3.707</td><td>1.244</td><td>1.572</td></tr>
+<tr class="daily hidden-row" data-month="2026-01"><td>29/01/2026</td><td>1.000</td><td>80</td><td>212</td><td>708</td><td>891</td><td>109</td><td>3.579</td><td>2.831</td><td>748</td><td>856</td></tr>
+<tr class="daily hidden-row" data-month="2026-01"><td>30/01/2026</td><td>1.493</td><td>310</td><td>220</td><td>963</td><td>497</td><td>996</td><td>4.591</td><td>3.603</td><td>988</td><td>1.984</td></tr>
+<tr class="monthly collapsed" data-month="2026-02"><td class="month-cell"><span class="month-toggle">▾</span><span class="month-label">fev-2026</span></td><td>19.096</td><td>2.477</td><td>3.346</td><td>13.272</td><td>16.579</td><td>2.516</td><td>52.917</td><td>50.044</td><td>2.873</td><td>5.389</td></tr>
+<tr class="daily hidden-row" data-month="2026-02"><td>02/02/2026</td><td>929</td><td>139</td><td>201</td><td>588</td><td>647</td><td>282</td><td>2.841</td><td>2.589</td><td>252</td><td>534</td></tr>
+<tr class="daily hidden-row" data-month="2026-02"><td>03/02/2026</td><td>761</td><td>105</td><td>168</td><td>488</td><td>798</td><td>-37</td><td>1.981</td><td>2.854</td><td>-873</td><td>-911</td></tr>
+<tr class="daily hidden-row" data-month="2026-02"><td>04/02/2026</td><td>915</td><td>171</td><td>118</td><td>627</td><td>778</td><td>137</td><td>2.385</td><td>2.725</td><td>-340</td><td>-202</td></tr>
+<tr class="daily hidden-row" data-month="2026-02"><td>05/02/2026</td><td>1.073</td><td>163</td><td>184</td><td>726</td><td>793</td><td>280</td><td>2.389</td><td>2.141</td><td>248</td><td>528</td></tr>
+<tr class="daily hidden-row" data-month="2026-02"><td>06/02/2026</td><td>584</td><td>159</td><td>82</td><td>343</td><td>718</td><td>-135</td><td>2.117</td><td>2.355</td><td>-238</td><td>-373</td></tr>
+<tr class="daily hidden-row" data-month="2026-02"><td>09/02/2026</td><td>860</td><td>121</td><td>148</td><td>592</td><td>844</td><td>16</td><td>2.723</td><td>2.689</td><td>34</td><td>50</td></tr>
+<tr class="daily hidden-row" data-month="2026-02"><td>10/02/2026</td><td>842</td><td>153</td><td>143</td><td>546</td><td>758</td><td>84</td><td>3.030</td><td>2.153</td><td>877</td><td>961</td></tr>
+<tr class="daily hidden-row" data-month="2026-02"><td>11/02/2026</td><td>1.015</td><td>133</td><td>155</td><td>726</td><td>1.226</td><td>-212</td><td>3.162</td><td>3.804</td><td>-642</td><td>-854</td></tr>
+<tr class="daily hidden-row" data-month="2026-02"><td>12/02/2026</td><td>1.390</td><td>164</td><td>223</td><td>1.004</td><td>803</td><td>587</td><td>2.950</td><td>2.604</td><td>346</td><td>933</td></tr>
+<tr class="daily hidden-row" data-month="2026-02"><td>13/02/2026</td><td>1.434</td><td>137</td><td>197</td><td>1.101</td><td>765</td><td>669</td><td>2.558</td><td>2.401</td><td>157</td><td>826</td></tr>
+<tr class="daily hidden-row" data-month="2026-02"><td>18/02/2026</td><td>630</td><td>35</td><td>135</td><td>460</td><td>572</td><td>59</td><td>2.069</td><td>1.982</td><td>88</td><td>146</td></tr>
+<tr class="daily hidden-row" data-month="2026-02"><td>19/02/2026</td><td>1.231</td><td>151</td><td>222</td><td>858</td><td>1.287</td><td>-56</td><td>7.205</td><td>4.862</td><td>2.343</td><td>2.287</td></tr>
+<tr class="daily hidden-row" data-month="2026-02"><td>20/02/2026</td><td>1.044</td><td>160</td><td>129</td><td>754</td><td>1.270</td><td>-226</td><td>2.275</td><td>2.613</td><td>-338</td><td>-564</td></tr>
+<tr class="daily hidden-row" data-month="2026-02"><td>23/02/2026</td><td>1.370</td><td>158</td><td>130</td><td>1.081</td><td>1.128</td><td>241</td><td>3.029</td><td>2.535</td><td>494</td><td>735</td></tr>
+<tr class="daily hidden-row" data-month="2026-02"><td>24/02/2026</td><td>1.211</td><td>128</td><td>206</td><td>876</td><td>1.239</td><td>-28</td><td>3.303</td><td>2.672</td><td>630</td><td>602</td></tr>
+<tr class="daily hidden-row" data-month="2026-02"><td>25/02/2026</td><td>1.439</td><td>117</td><td>338</td><td>983</td><td>1.375</td><td>64</td><td>2.859</td><td>2.841</td><td>19</td><td>83</td></tr>
+<tr class="daily hidden-row" data-month="2026-02"><td>26/02/2026</td><td>1.424</td><td>214</td><td>242</td><td>968</td><td>888</td><td>535</td><td>2.997</td><td>2.906</td><td>91</td><td>627</td></tr>
+<tr class="daily hidden-row" data-month="2026-02"><td>27/02/2026</td><td>945</td><td>67</td><td>326</td><td>552</td><td>689</td><td>256</td><td>3.044</td><td>3.319</td><td>-275</td><td>-19</td></tr>
+<tr class="monthly collapsed" data-month="2026-03"><td class="month-cell"><span class="month-toggle">▾</span><span class="month-label">mar-2026</span></td><td>28.408</td><td>2.988</td><td>7.748</td><td>17.672</td><td>20.704</td><td>7.703</td><td>62.787</td><td>76.840</td><td>-14.054</td><td>-6.350</td></tr>
+<tr class="daily hidden-row" data-month="2026-03"><td>02/03/2026</td><td>1.337</td><td>109</td><td>362</td><td>867</td><td>692</td><td>645</td><td>2.526</td><td>5.618</td><td>-3.092</td><td>-2.447</td></tr>
+<tr class="daily hidden-row" data-month="2026-03"><td>03/03/2026</td><td>1.723</td><td>257</td><td>291</td><td>1.176</td><td>741</td><td>983</td><td>3.775</td><td>3.284</td><td>491</td><td>1.473</td></tr>
+<tr class="daily hidden-row" data-month="2026-03"><td>04/03/2026</td><td>958</td><td>49</td><td>309</td><td>600</td><td>861</td><td>97</td><td>2.788</td><td>6.016</td><td>-3.228</td><td>-3.131</td></tr>
+<tr class="daily hidden-row" data-month="2026-03"><td>05/03/2026</td><td>1.069</td><td>194</td><td>206</td><td>669</td><td>739</td><td>330</td><td>2.452</td><td>2.848</td><td>-396</td><td>-67</td></tr>
+<tr class="daily hidden-row" data-month="2026-03"><td>06/03/2026</td><td>1.492</td><td>241</td><td>226</td><td>1.025</td><td>646</td><td>846</td><td>2.386</td><td>2.836</td><td>-450</td><td>397</td></tr>
+<tr class="daily hidden-row" data-month="2026-03"><td>09/03/2026</td><td>691</td><td>44</td><td>117</td><td>530</td><td>814</td><td>-123</td><td>2.652</td><td>3.225</td><td>-573</td><td>-696</td></tr>
+<tr class="daily hidden-row" data-month="2026-03"><td>10/03/2026</td><td>684</td><td>50</td><td>232</td><td>401</td><td>1.059</td><td>-375</td><td>3.172</td><td>2.794</td><td>378</td><td>3</td></tr>
+<tr class="daily hidden-row" data-month="2026-03"><td>11/03/2026</td><td>846</td><td>49</td><td>159</td><td>638</td><td>1.251</td><td>-405</td><td>3.565</td><td>3.130</td><td>436</td><td>30</td></tr>
+<tr class="daily hidden-row" data-month="2026-03"><td>12/03/2026</td><td>1.365</td><td>136</td><td>472</td><td>757</td><td>610</td><td>755</td><td>2.252</td><td>3.650</td><td>-1.397</td><td>-642</td></tr>
+<tr class="daily hidden-row" data-month="2026-03"><td>13/03/2026</td><td>1.416</td><td>121</td><td>248</td><td>1.046</td><td>569</td><td>847</td><td>3.385</td><td>3.691</td><td>-306</td><td>542</td></tr>
+<tr class="daily hidden-row" data-month="2026-03"><td>16/03/2026</td><td>965</td><td>143</td><td>217</td><td>605</td><td>953</td><td>12</td><td>3.011</td><td>2.788</td><td>224</td><td>236</td></tr>
+<tr class="daily hidden-row" data-month="2026-03"><td>17/03/2026</td><td>557</td><td>65</td><td>197</td><td>295</td><td>941</td><td>-383</td><td>2.528</td><td>2.597</td><td>-69</td><td>-453</td></tr>
+<tr class="daily hidden-row" data-month="2026-03"><td>18/03/2026</td><td>1.192</td><td>86</td><td>179</td><td>927</td><td>663</td><td>529</td><td>3.335</td><td>3.225</td><td>110</td><td>639</td></tr>
+<tr class="daily hidden-row" data-month="2026-03"><td>19/03/2026</td><td>1.228</td><td>127</td><td>266</td><td>834</td><td>866</td><td>362</td><td>3.046</td><td>3.415</td><td>-370</td><td>-8</td></tr>
+<tr class="daily hidden-row" data-month="2026-03"><td>20/03/2026</td><td>1.828</td><td>134</td><td>513</td><td>1.181</td><td>809</td><td>1.019</td><td>2.919</td><td>4.488</td><td>-1.569</td><td>-551</td></tr>
+<tr class="daily hidden-row" data-month="2026-03"><td>23/03/2026</td><td>960</td><td>119</td><td>102</td><td>739</td><td>1.300</td><td>-341</td><td>3.269</td><td>3.434</td><td>-165</td><td>-506</td></tr>
+<tr class="daily hidden-row" data-month="2026-03"><td>24/03/2026</td><td>1.244</td><td>83</td><td>357</td><td>805</td><td>1.249</td><td>-4</td><td>3.299</td><td>2.835</td><td>464</td><td>460</td></tr>
+<tr class="daily hidden-row" data-month="2026-03"><td>25/03/2026</td><td>1.199</td><td>191</td><td>312</td><td>697</td><td>1.766</td><td>-567</td><td>2.203</td><td>2.324</td><td>-120</td><td>-688</td></tr>
+<tr class="daily hidden-row" data-month="2026-03"><td>26/03/2026</td><td>2.674</td><td>333</td><td>1.097</td><td>1.244</td><td>1.226</td><td>1.448</td><td>3.139</td><td>2.615</td><td>524</td><td>1.971</td></tr>
+<tr class="daily hidden-row" data-month="2026-03"><td>27/03/2026</td><td>1.911</td><td>116</td><td>628</td><td>1.167</td><td>964</td><td>947</td><td>2.407</td><td>3.061</td><td>-654</td><td>294</td></tr>
+<tr class="daily hidden-row" data-month="2026-03"><td>30/03/2026</td><td>1.953</td><td>179</td><td>828</td><td>947</td><td>890</td><td>1.063</td><td>1.872</td><td>5.671</td><td>-3.799</td><td>-2.735</td></tr>
+<tr class="daily hidden-row" data-month="2026-03"><td>31/03/2026</td><td>1.115</td><td>163</td><td>429</td><td>523</td><td>1.097</td><td>18</td><td>2.804</td><td>3.296</td><td>-492</td><td>-474</td></tr>
+<tr class="monthly collapsed" data-month="2026-04"><td class="month-cell"><span class="month-toggle">▾</span><span class="month-label">abr-2026</span></td><td>28.517</td><td>2.796</td><td>8.018</td><td>17.702</td><td>21.928</td><td>6.588</td><td>62.000</td><td>59.387</td><td>2.613</td><td>9.202</td></tr>
+<tr class="daily hidden-row" data-month="2026-04"><td>01/04/2026</td><td>1.451</td><td>160</td><td>668</td><td>624</td><td>1.042</td><td>410</td><td>3.775</td><td>3.624</td><td>151</td><td>561</td></tr>
+<tr class="daily hidden-row" data-month="2026-04"><td>02/04/2026</td><td>851</td><td>152</td><td>335</td><td>364</td><td>1.099</td><td>-248</td><td>2.936</td><td>2.686</td><td>250</td><td>2</td></tr>
+<tr class="daily hidden-row" data-month="2026-04"><td>06/04/2026</td><td>901</td><td>76</td><td>422</td><td>403</td><td>798</td><td>103</td><td>2.045</td><td>2.039</td><td>6</td><td>108</td></tr>
+<tr class="daily hidden-row" data-month="2026-04"><td>07/04/2026</td><td>890</td><td>153</td><td>145</td><td>592</td><td>838</td><td>52</td><td>1.885</td><td>2.237</td><td>-352</td><td>-300</td></tr>
+<tr class="daily hidden-row" data-month="2026-04"><td>08/04/2026</td><td>1.074</td><td>83</td><td>402</td><td>589</td><td>1.144</td><td>-71</td><td>2.376</td><td>2.262</td><td>114</td><td>43</td></tr>
+<tr class="daily hidden-row" data-month="2026-04"><td>09/04/2026</td><td>1.283</td><td>107</td><td>310</td><td>865</td><td>1.252</td><td>30</td><td>2.102</td><td>2.860</td><td>-758</td><td>-728</td></tr>
+<tr class="daily hidden-row" data-month="2026-04"><td>10/04/2026</td><td>766</td><td>119</td><td>199</td><td>448</td><td>1.126</td><td>-360</td><td>2.571</td><td>2.617</td><td>-46</td><td>-406</td></tr>
+<tr class="daily hidden-row" data-month="2026-04"><td>13/04/2026</td><td>855</td><td>115</td><td>114</td><td>627</td><td>1.162</td><td>-307</td><td>2.387</td><td>3.079</td><td>-692</td><td>-1.000</td></tr>
+<tr class="daily hidden-row" data-month="2026-04"><td>14/04/2026</td><td>1.438</td><td>61</td><td>201</td><td>1.175</td><td>1.163</td><td>275</td><td>2.750</td><td>3.469</td><td>-719</td><td>-444</td></tr>
+<tr class="daily hidden-row" data-month="2026-04"><td>15/04/2026</td><td>1.047</td><td>116</td><td>140</td><td>792</td><td>973</td><td>74</td><td>2.980</td><td>2.666</td><td>314</td><td>388</td></tr>
+<tr class="daily hidden-row" data-month="2026-04"><td>16/04/2026</td><td>1.540</td><td>126</td><td>457</td><td>957</td><td>959</td><td>581</td><td>2.024</td><td>4.290</td><td>-2.266</td><td>-1.685</td></tr>
+<tr class="daily hidden-row" data-month="2026-04"><td>17/04/2026</td><td>1.254</td><td>120</td><td>595</td><td>540</td><td>1.022</td><td>232</td><td>3.060</td><td>3.079</td><td>-19</td><td>213</td></tr>
+<tr class="daily hidden-row" data-month="2026-04"><td>20/04/2026</td><td>609</td><td>56</td><td>113</td><td>440</td><td>867</td><td>-258</td><td>2.422</td><td>3.143</td><td>-721</td><td>-979</td></tr>
+<tr class="daily hidden-row" data-month="2026-04"><td>22/04/2026</td><td>1.867</td><td>85</td><td>427</td><td>1.355</td><td>1.506</td><td>361</td><td>3.305</td><td>2.679</td><td>625</td><td>986</td></tr>
+<tr class="daily hidden-row" data-month="2026-04"><td>23/04/2026</td><td>1.962</td><td>259</td><td>439</td><td>1.265</td><td>1.372</td><td>590</td><td>9.458</td><td>2.695</td><td>6.763</td><td>7.353</td></tr>
+<tr class="daily hidden-row" data-month="2026-04"><td>24/04/2026</td><td>1.805</td><td>256</td><td>267</td><td>1.282</td><td>996</td><td>808</td><td>3.542</td><td>2.568</td><td>974</td><td>1.783</td></tr>
+<tr class="daily hidden-row" data-month="2026-04"><td>27/04/2026</td><td>2.071</td><td>102</td><td>1.069</td><td>900</td><td>1.378</td><td>693</td><td>3.502</td><td>3.199</td><td>303</td><td>996</td></tr>
+<tr class="daily hidden-row" data-month="2026-04"><td>28/04/2026</td><td>2.621</td><td>176</td><td>416</td><td>2.029</td><td>1.134</td><td>1.487</td><td>2.566</td><td>2.784</td><td>-218</td><td>1.269</td></tr>
+<tr class="daily hidden-row" data-month="2026-04"><td>29/04/2026</td><td>2.570</td><td>315</td><td>745</td><td>1.509</td><td>1.084</td><td>1.486</td><td>3.199</td><td>4.230</td><td>-1.031</td><td>454</td></tr>
+<tr class="daily hidden-row" data-month="2026-04"><td>30/04/2026</td><td>1.661</td><td>160</td><td>555</td><td>946</td><td>1.011</td><td>650</td><td>3.115</td><td>3.178</td><td>-63</td><td>587</td></tr>
+<tr class="monthly collapsed" data-month="2026-05"><td class="month-cell"><span class="month-toggle">▾</span><span class="month-label">mai-2026</span></td><td>28.496</td><td>2.738</td><td>8.656</td><td>17.102</td><td>19.992</td><td>8.504</td><td>52.815</td><td>60.753</td><td>-7.938</td><td>565</td></tr>
+<tr class="daily hidden-row" data-month="2026-05"><td>04/05/2026</td><td>1.253</td><td>153</td><td>311</td><td>790</td><td>796</td><td>457</td><td>2.962</td><td>3.032</td><td>-69</td><td>388</td></tr>
+<tr class="daily hidden-row" data-month="2026-05"><td>05/05/2026</td><td>821</td><td>66</td><td>174</td><td>581</td><td>1.129</td><td>-308</td><td>2.960</td><td>3.866</td><td>-906</td><td>-1.215</td></tr>
+<tr class="daily hidden-row" data-month="2026-05"><td>06/05/2026</td><td>1.077</td><td>164</td><td>301</td><td>612</td><td>984</td><td>94</td><td>2.600</td><td>3.263</td><td>-663</td><td>-569</td></tr>
+<tr class="daily hidden-row" data-month="2026-05"><td>07/05/2026</td><td>1.443</td><td>98</td><td>732</td><td>613</td><td>909</td><td>534</td><td>1.949</td><td>3.295</td><td>-1.346</td><td>-812</td></tr>
+<tr class="daily hidden-row" data-month="2026-05"><td>08/05/2026</td><td>957</td><td>117</td><td>269</td><td>572</td><td>995</td><td>-37</td><td>2.985</td><td>2.183</td><td>802</td><td>765</td></tr>
+<tr class="daily hidden-row" data-month="2026-05"><td>11/05/2026</td><td>1.013</td><td>97</td><td>207</td><td>708</td><td>1.025</td><td>-12</td><td>2.249</td><td>1.985</td><td>264</td><td>251</td></tr>
+<tr class="daily hidden-row" data-month="2026-05"><td>12/05/2026</td><td>903</td><td>89</td><td>266</td><td>549</td><td>777</td><td>127</td><td>2.208</td><td>2.278</td><td>-70</td><td>57</td></tr>
+<tr class="daily hidden-row" data-month="2026-05"><td>13/05/2026</td><td>2.289</td><td>155</td><td>732</td><td>1.402</td><td>891</td><td>1.398</td><td>3.152</td><td>3.123</td><td>29</td><td>1.427</td></tr>
+<tr class="daily hidden-row" data-month="2026-05"><td>14/05/2026</td><td>1.665</td><td>169</td><td>379</td><td>1.117</td><td>881</td><td>784</td><td>3.214</td><td>3.693</td><td>-479</td><td>304</td></tr>
+<tr class="daily hidden-row" data-month="2026-05"><td>15/05/2026</td><td>1.934</td><td>139</td><td>534</td><td>1.261</td><td>840</td><td>1.094</td><td>3.338</td><td>3.389</td><td>-50</td><td>1.044</td></tr>
+<tr class="daily hidden-row" data-month="2026-05"><td>18/05/2026</td><td>1.072</td><td>85</td><td>314</td><td>673</td><td>764</td><td>308</td><td>3.418</td><td>4.485</td><td>-1.067</td><td>-759</td></tr>
+<tr class="daily hidden-row" data-month="2026-05"><td>19/05/2026</td><td>1.901</td><td>379</td><td>564</td><td>957</td><td>1.273</td><td>628</td><td>1.939</td><td>2.524</td><td>-585</td><td>43</td></tr>
+<tr class="daily hidden-row" data-month="2026-05"><td>20/05/2026</td><td>1.532</td><td>58</td><td>260</td><td>1.214</td><td>1.181</td><td>351</td><td>2.666</td><td>3.574</td><td>-907</td><td>-557</td></tr>
+<tr class="daily hidden-row" data-month="2026-05"><td>21/05/2026</td><td>1.242</td><td>139</td><td>311</td><td>792</td><td>1.472</td><td>-230</td><td>2.009</td><td>3.816</td><td>-1.807</td><td>-2.038</td></tr>
+<tr class="daily hidden-row" data-month="2026-05"><td>22/05/2026</td><td>821</td><td>87</td><td>191</td><td>543</td><td>789</td><td>32</td><td>2.228</td><td>2.855</td><td>-627</td><td>-595</td></tr>
+<tr class="daily hidden-row" data-month="2026-05"><td>25/05/2026</td><td>919</td><td>52</td><td>308</td><td>559</td><td>851</td><td>68</td><td>1.325</td><td>1.482</td><td>-157</td><td>-89</td></tr>
+<tr class="daily hidden-row" data-month="2026-05"><td>26/05/2026</td><td>2.520</td><td>131</td><td>1.320</td><td>1.069</td><td>1.339</td><td>1.181</td><td>2.703</td><td>3.095</td><td>-393</td><td>789</td></tr>
+<tr class="daily hidden-row" data-month="2026-05"><td>27/05/2026</td><td>2.280</td><td>207</td><td>592</td><td>1.481</td><td>1.197</td><td>1.084</td><td>2.257</td><td>2.729</td><td>-472</td><td>612</td></tr>
+<tr class="daily hidden-row" data-month="2026-05"><td>28/05/2026</td><td>1.510</td><td>216</td><td>566</td><td>728</td><td>1.137</td><td>373</td><td>2.598</td><td>2.594</td><td>4</td><td>378</td></tr>
+<tr class="daily hidden-row" data-month="2026-05"><td>29/05/2026</td><td>1.343</td><td>138</td><td>325</td><td>880</td><td>764</td><td>579</td><td>4.055</td><td>3.493</td><td>562</td><td>1.141</td></tr>
+<tr class="monthly open" data-month="2026-06"><td class="month-cell"><span class="month-toggle">▾</span><span class="month-label">jun-2026</span></td><td>31.327</td><td>2.935</td><td>8.986</td><td>19.406</td><td>21.587</td><td>9.740</td><td>63.560</td><td>69.391</td><td>-5.831</td><td>3.909</td></tr>
+<tr class="daily" data-month="2026-06"><td>01/06/2026</td><td>1.241</td><td>160</td><td>405</td><td>675</td><td>981</td><td>260</td><td>2.898</td><td>3.226</td><td>-328</td><td>-68</td></tr>
+<tr class="daily" data-month="2026-06"><td>02/06/2026</td><td>1.019</td><td>79</td><td>238</td><td>702</td><td>1.029</td><td>-10</td><td>3.435</td><td>3.433</td><td>2</td><td>-8</td></tr>
+<tr class="daily" data-month="2026-06"><td>03/06/2026</td><td>2.240</td><td>245</td><td>541</td><td>1.454</td><td>1.265</td><td>975</td><td>3.795</td><td>3.272</td><td>522</td><td>1.497</td></tr>
+<tr class="daily" data-month="2026-06"><td>05/06/2026</td><td>1.382</td><td>105</td><td>261</td><td>1.016</td><td>533</td><td>849</td><td>2.526</td><td>2.208</td><td>318</td><td>1.167</td></tr>
+<tr class="daily" data-month="2026-06"><td>08/06/2026</td><td>3.079</td><td>239</td><td>534</td><td>2.306</td><td>1.023</td><td>2.056</td><td>2.976</td><td>3.958</td><td>-982</td><td>1.074</td></tr>
+<tr class="daily" data-month="2026-06"><td>09/06/2026</td><td>1.388</td><td>97</td><td>373</td><td>918</td><td>802</td><td>586</td><td>2.109</td><td>2.091</td><td>18</td><td>604</td></tr>
+<tr class="daily" data-month="2026-06"><td>10/06/2026</td><td>1.030</td><td>61</td><td>164</td><td>806</td><td>995</td><td>35</td><td>2.802</td><td>3.520</td><td>-718</td><td>-683</td></tr>
+<tr class="daily" data-month="2026-06"><td>11/06/2026</td><td>1.166</td><td>69</td><td>497</td><td>601</td><td>1.080</td><td>86</td><td>3.471</td><td>3.078</td><td>393</td><td>479</td></tr>
+<tr class="daily" data-month="2026-06"><td>12/06/2026</td><td>1.216</td><td>88</td><td>634</td><td>494</td><td>1.057</td><td>159</td><td>2.528</td><td>2.619</td><td>-91</td><td>68</td></tr>
+<tr class="daily" data-month="2026-06"><td>15/06/2026</td><td>947</td><td>100</td><td>324</td><td>523</td><td>861</td><td>86</td><td>4.397</td><td>2.969</td><td>1.428</td><td>1.514</td></tr>
+<tr class="daily" data-month="2026-06"><td>16/06/2026</td><td>881</td><td>92</td><td>248</td><td>541</td><td>902</td><td>-21</td><td>4.181</td><td>3.816</td><td>365</td><td>345</td></tr>
+<tr class="daily" data-month="2026-06"><td>17/06/2026</td><td>1.771</td><td>80</td><td>362</td><td>1.329</td><td>897</td><td>874</td><td>3.338</td><td>3.347</td><td>-8</td><td>866</td></tr>
+<tr class="daily" data-month="2026-06"><td>18/06/2026</td><td>1.762</td><td>142</td><td>553</td><td>1.067</td><td>765</td><td>998</td><td>3.965</td><td>3.078</td><td>887</td><td>1.885</td></tr>
+<tr class="daily" data-month="2026-06"><td>19/06/2026</td><td>525</td><td>77</td><td>71</td><td>378</td><td>760</td><td>-235</td><td>1.733</td><td>2.042</td><td>-309</td><td>-544</td></tr>
+<tr class="daily" data-month="2026-06"><td>22/06/2026</td><td>1.480</td><td>267</td><td>384</td><td>829</td><td>1.107</td><td>373</td><td>2.353</td><td>2.736</td><td>-383</td><td>-10</td></tr>
+<tr class="daily" data-month="2026-06"><td>23/06/2026</td><td>1.530</td><td>162</td><td>383</td><td>985</td><td>1.579</td><td>-49</td><td>3.914</td><td>3.728</td><td>186</td><td>137</td></tr>
+<tr class="daily" data-month="2026-06"><td>24/06/2026</td><td>1.577</td><td>190</td><td>448</td><td>939</td><td>1.543</td><td>34</td><td>2.486</td><td>4.386</td><td>-1.900</td><td>-1.866</td></tr>
+<tr class="daily" data-month="2026-06"><td>25/06/2026</td><td>1.895</td><td>153</td><td>817</td><td>925</td><td>1.316</td><td>579</td><td>3.198</td><td>2.558</td><td>640</td><td>1.219</td></tr>
+<tr class="daily" data-month="2026-06"><td>26/06/2026</td><td>1.792</td><td>169</td><td>579</td><td>1.044</td><td>1.186</td><td>606</td><td>2.522</td><td>3.636</td><td>-1.113</td><td>-507</td></tr>
+<tr class="daily" data-month="2026-06"><td>29/06/2026</td><td>1.812</td><td>144</td><td>675</td><td>993</td><td>861</td><td>951</td><td>2.592</td><td>6.363</td><td>-3.771</td><td>-2.820</td></tr>
+<tr class="daily" data-month="2026-06"><td>30/06/2026</td><td>1.593</td><td>217</td><td>495</td><td>881</td><td>1.045</td><td>548</td><td>2.341</td><td>3.329</td><td>-988</td><td>-440</td></tr>
+<tr class="monthly open" data-month="2026-07"><td class="month-cell"><span class="month-toggle">▾</span><span class="month-label">jul-2026</span></td><td>3.340</td><td>264</td><td>699</td><td>2.377</td><td>2.813</td><td>526</td><td>7.225</td><td>8.709</td><td>-1.484</td><td>-958</td></tr>
+<tr class="daily" data-month="2026-07"><td>01/07/2026</td><td>1.427</td><td>113</td><td>174</td><td>1.140</td><td>950</td><td>477</td><td>3.392</td><td>3.511</td><td>-119</td><td>358</td></tr>
+<tr class="daily" data-month="2026-07"><td>02/07/2026</td><td>1.056</td><td>98</td><td>247</td><td>711</td><td>860</td><td>195</td><td>2.558</td><td>3.476</td><td>-918</td><td>-723</td></tr>
+<tr class="daily" data-month="2026-07"><td>03/07/2026</td><td>857</td><td>53</td><td>279</td><td>525</td><td>1.003</td><td>-146</td><td>1.275</td><td>1.722</td><td>-447</td><td>-593</td></tr></tbody>
+  <tfoot><tr id="sum-row"><td id="sum-0">Soma</td><td id="sum-1"></td><td id="sum-2"></td><td id="sum-3"></td><td id="sum-4"></td><td id="sum-5"></td><td id="sum-6"></td><td id="sum-7"></td><td id="sum-8"></td><td id="sum-9"></td><td id="sum-10"></td></tr></tfoot>
 </table>
+    </div>
+    <aside class="summary-card">
+      <div class="summary-flow" id="summary-flow">—</div>
+      <ul class="summary-points">
+        <li><span class="pt-label" id="pt-prev-label">Último mês</span><span class="val" id="pt-prev-val">—</span></li>
+        <li><span class="pt-label" id="pt-cur-label">Mês atual</span><span class="val" id="pt-cur-val">—</span></li>
+        <li><span class="pt-label" id="pt-year-label">Ano</span><span class="val" id="pt-year-val">—</span></li>
+      </ul>
+    </aside>
+  </div>
+</div>
+
+<div id="tab-sazonalidade" class="tab-panel">
+  <div class="chart-wrap">
+    <div class="chart-controls">
+      <div class="stat-group">
+        <span>Tendência central:</span>
+        <button class="toggle-stat active" data-stat="mediana">Mediana</button>
+        <button class="toggle-stat" data-stat="media">Média</button>
+      </div>
+      <div class="stat-group" id="year-toggles"><span>Anos anteriores:</span></div>
+      <div class="chart-copy">
+        <button id="copy-chart-btn" class="copy-btn">📋 Copiar gráfico</button>
+        <span id="copy-chart-status" class="copy-status"></span>
+      </div>
+    </div>
+    <canvas id="seasonal-chart" height="100"></canvas>
+  </div>
 </div>
 
 <script>
+  // ── Copiar como imagem (helpers) ───────────────────────
+  let currentSummaryText = '';  // preenchido por updateSummary()
+
+  function setStatus(el, msg, cls) {
+    el.textContent = msg;
+    el.className = 'copy-status' + (cls ? ' ' + cls : '');
+  }
+  function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  async function captureTableCanvas() {
+    const wrap = document.querySelector('.table-wrap');
+    wrap.classList.add('capturing');
+    try {
+      return await html2canvas(document.getElementById('main-table'), { backgroundColor: '#ffffff', scale: 2 });
+    } finally {
+      wrap.classList.remove('capturing');
+    }
+  }
+
+  async function copyOrDownload(blob, filename, statusEl, btn) {
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      setStatus(statusEl, '✓ Copiado! Cole na conversa com Ctrl+V.', 'ok');
+    } catch (err) {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      setStatus(statusEl, 'Cópia direta bloqueada — imagem baixada (' + filename + ').', 'err');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  const copyStatus  = document.getElementById('copy-status');
+
+  // Só imagem (tabela)
+  const copyBtn = document.getElementById('copy-btn');
+  copyBtn.addEventListener('click', async () => {
+    copyBtn.disabled = true;
+    setStatus(copyStatus, 'Gerando imagem…');
+    try {
+      const canvas = await captureTableCanvas();
+      canvas.toBlob(blob => copyOrDownload(blob, 'tabela-cambio.png', copyStatus, copyBtn), 'image/png');
+    } catch (e) {
+      copyBtn.disabled = false;
+      setStatus(copyStatus, 'Erro ao gerar imagem: ' + e.message, 'err');
+    }
+  });
+
+  // Só texto (resumo)
+  const copyTextBtn = document.getElementById('copy-text-btn');
+  copyTextBtn.addEventListener('click', async () => {
+    copyTextBtn.disabled = true;
+    try {
+      await navigator.clipboard.writeText(currentSummaryText);
+      setStatus(copyStatus, '✓ Texto copiado! Cole na conversa com Ctrl+V.', 'ok');
+    } catch (e) {
+      setStatus(copyStatus, 'Não foi possível copiar o texto: ' + e.message, 'err');
+    } finally {
+      copyTextBtn.disabled = false;
+    }
+  });
+
+  // Mensagem pronta: uma imagem só (tabela + resumo desenhado embaixo)
+  const copyMsgBtn = document.getElementById('copy-msg-btn');
+  const IMG_SCALE  = 2;  // mesma escala do captureTableCanvas
+  copyMsgBtn.addEventListener('click', async () => {
+    copyMsgBtn.disabled = true;
+    setStatus(copyStatus, 'Gerando mensagem…');
+    try {
+      const table = await captureTableCanvas();
+      const pad   = 20 * IMG_SCALE;
+      const fs    = 15 * IMG_SCALE;
+      const lh    = Math.round(fs * 1.5);
+      const font  = w => (w ? w + ' ' : '') + fs + 'px "Segoe UI", Arial, sans-serif';
+      const lines = currentSummaryText.split('\n');
+
+      // mede a largura do texto para dimensionar o canvas
+      const meas = document.createElement('canvas').getContext('2d');
+      meas.font = font('600');
+      let maxTextW = 0;
+      lines.forEach(l => { maxTextW = Math.max(maxTextW, meas.measureText(l).width); });
+
+      const width  = Math.max(table.width, Math.ceil(maxTextW) + pad * 2);
+      let textH = pad;  // respiro entre tabela e texto
+      lines.forEach(l => { textH += (l === '' ? Math.round(lh * 0.5) : lh); });
+      textH += pad;     // respiro no rodapé
+      const height = table.height + textH;
+
+      const out = document.createElement('canvas');
+      out.width = width; out.height = height;
+      const ctx = out.getContext('2d');
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(table, 0, 0);
+
+      ctx.textBaseline = 'top';
+      let y = table.height + pad;
+      lines.forEach((l, i) => {
+        if (l === '') { y += Math.round(lh * 0.5); return; }
+        ctx.font = font(i === 0 ? '600' : '');
+        ctx.fillStyle = i === 0 ? '#1a3a5c' : '#222222';
+        ctx.fillText(l, pad, y);
+        y += lh;
+      });
+
+      out.toBlob(blob => copyOrDownload(blob, 'mensagem-cambio.png', copyStatus, copyMsgBtn), 'image/png');
+    } catch (e) {
+      copyMsgBtn.disabled = false;
+      setStatus(copyStatus, 'Erro ao gerar mensagem: ' + e.message, 'err');
+    }
+  });
+
+  // Copiar gráfico (compõe o canvas sobre fundo branco)
+  const copyChartBtn    = document.getElementById('copy-chart-btn');
+  const copyChartStatus = document.getElementById('copy-chart-status');
+  copyChartBtn.addEventListener('click', () => {
+    const src = document.getElementById('seasonal-chart');
+    copyChartBtn.disabled = true;
+    setStatus(copyChartStatus, 'Gerando imagem…');
+    const out = document.createElement('canvas');
+    out.width  = src.width;
+    out.height = src.height;
+    const ctx = out.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, out.width, out.height);
+    ctx.drawImage(src, 0, 0);
+    out.toBlob(blob => copyOrDownload(blob, 'grafico-cambio.png', copyChartStatus, copyChartBtn), 'image/png');
+  });
+
+  // ── Tab switching ──────────────────────────────────────
+  const tabBtns  = document.querySelectorAll('.tab-btn');
+  const rangeCtl = document.getElementById('range-control');
+
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      tabBtns.forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+      rangeCtl.style.display = btn.dataset.tab === 'tabela' ? '' : 'none';
+    });
+  });
+
+  // ── Abrir/fechar meses (setinha) ───────────────────────
+  document.querySelectorAll('tr.monthly').forEach(row => {
+    const mk    = row.dataset.month;
+    const days  = document.querySelectorAll('tr.daily[data-month="' + mk + '"]');
+    const toggle = row.querySelector('.month-toggle');
+    if (!days.length) {           // mês sem diárias: seta some, sem clique
+      if (toggle) toggle.classList.add('empty');
+      return;
+    }
+    row.querySelector('.month-cell').addEventListener('click', () => {
+      const collapsed = row.classList.toggle('collapsed');
+      row.classList.toggle('open', !collapsed);
+      days.forEach(d => d.classList.toggle('hidden-row', collapsed));
+    });
+  });
+
+  // ── Soma (tabela) ──────────────────────────────────────
   const rangeInput = document.getElementById('range-input');
-  const DATE_RE = /^\d{2}\/\d{2}\/\d{4}$/;
-  const MONTHS  = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+  const DATE_RE    = /^\d{2}\/\d{2}\/\d{4}$/;
+  const MONTHS     = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 
   function parseNum(str) {
     if (!str || str.trim() === '') return NaN;
     return parseFloat(str.replace(/\./g, ''));
   }
-
   function formatNum(n) {
     if (isNaN(n)) return '';
     return Math.round(n).toLocaleString('pt-BR');
   }
-
   function buildSumLabel(dailyRows) {
     if (!dailyRows.length) return 'Soma';
     const first = dailyRows[0].querySelector('td').textContent.trim();
@@ -114,7 +485,6 @@
     if (fm === lm)      return `Soma ${fd} - ${ld}${lmon}`;
     return `Soma ${fd}${MONTHS[fm - 1]} - ${ld}${lmon}`;
   }
-
   function updateSums() {
     const tbody = document.getElementById('tbody');
     if (!tbody) return;
@@ -136,9 +506,168 @@
       sumCell.textContent = nums.length ? formatNum(nums.reduce((a, b) => a + b, 0)) : '';
     }
   }
-
   rangeInput.addEventListener('input', updateSums);
   updateSums();
+
+  // ── Resumo ao lado da tabela ───────────────────────────
+  const MONTHS_EN = ['january','february','march','april','may','june',
+                     'july','august','september','october','november','december'];
+  const SALDO_COL = 10;  // coluna Saldo total (c = a+b)
+
+  function bnParts(millions) {
+    const bn = millions / 1000;
+    return { text: (bn >= 0 ? '+' : '-') + Math.abs(bn).toFixed(2) + 'bn', pos: bn >= 0 };
+  }
+  function saldoOf(row) {
+    return parseNum((row.querySelectorAll('td')[SALDO_COL] || {}).textContent || '');
+  }
+  function setVal(el, millions) {
+    if (isNaN(millions)) { el.textContent = '—'; el.className = 'val'; return '—'; }
+    const p = bnParts(millions);
+    el.textContent = p.text;
+    el.className = 'val ' + (p.pos ? 'pos' : 'neg');
+    return p.text;
+  }
+  function updateSummary() {
+    const tbody = document.getElementById('tbody');
+    if (!tbody) return;
+    const allRows   = Array.from(tbody.querySelectorAll('tr'));
+    const dailyRows = allRows.filter(r => DATE_RE.test(r.querySelector('td')?.textContent.trim() || ''));
+    const n         = Math.max(1, parseInt(rangeInput.value, 10) || 5);
+    const rangeRows = dailyRows.slice(-n);
+
+    // Flow (saldo total) dos últimos N dias
+    let flow = 0, has = false;
+    rangeRows.forEach(r => { const v = saldoOf(r); if (!isNaN(v)) { flow += v; has = true; } });
+    const flowEl = document.getElementById('summary-flow');
+    let flowPlain = '—';
+    if (has && rangeRows.length) {
+      const bn    = flow / 1000;
+      const dir   = bn >= 0 ? 'Inflow' : 'Outflow';
+      const cls   = bn >= 0 ? 'pos' : 'neg';
+      const fmtD  = s => { const p = s.split('/'); return MONTHS_EN[(+p[1]) - 1] + ' ' + p[0]; };
+      const first = rangeRows[0].querySelector('td').textContent.trim();
+      const last  = rangeRows[rangeRows.length - 1].querySelector('td').textContent.trim();
+      const range = first === last ? fmtD(first) : fmtD(first) + ' - ' + fmtD(last);
+      flowPlain   = `${dir} de $${Math.abs(bn).toFixed(2)} Bn em ${range}`;
+      flowEl.innerHTML = `<span class="dir ${cls}">${dir}</span> de ` +
+        `<strong>$${Math.abs(bn).toFixed(2)} Bn</strong> em ${range}`;
+    } else {
+      flowEl.textContent = '—';
+    }
+
+    // Pontos fixos: último mês, mês atual, ano
+    const monthly = allRows.filter(r => r.classList.contains('monthly'));
+    const curM    = monthly[monthly.length - 1];
+    const prevM   = monthly[monthly.length - 2];
+    const yearR   = allRows.find(r => r.classList.contains('annual-current'));
+
+    const monLabel  = r => {
+      const [mon, yr] = r.querySelector('td').textContent.trim().toLowerCase().split('-');
+      return mon + (yr ? yr.slice(-2) : '');
+    };
+    const yearLabel = r => (r.querySelector('td').textContent.trim().match(/\d{4}/) || [''])[0];
+
+    const prevLbl = 'Último mês' + (prevM ? ' (' + monLabel(prevM) + ')' : '');
+    const curLbl  = 'Mês atual'  + (curM  ? ' (' + monLabel(curM)  + ')' : '');
+    const yearLbl = 'Ano'        + (yearR ? ' (' + yearLabel(yearR) + ')' : '');
+    document.getElementById('pt-prev-label').textContent = prevLbl;
+    document.getElementById('pt-cur-label').textContent  = curLbl;
+    document.getElementById('pt-year-label').textContent = yearLbl;
+    const prevVal = setVal(document.getElementById('pt-prev-val'), prevM ? saldoOf(prevM) : NaN);
+    const curVal  = setVal(document.getElementById('pt-cur-val'),  curM  ? saldoOf(curM)  : NaN);
+    const yearVal = setVal(document.getElementById('pt-year-val'), yearR ? saldoOf(yearR) : NaN);
+
+    currentSummaryText = [
+      flowPlain, '',
+      prevLbl + ': ' + prevVal,
+      curLbl  + ': ' + curVal,
+      yearLbl + ': ' + yearVal,
+    ].join('\n');
+  }
+  rangeInput.addEventListener('input', updateSummary);
+  updateSummary();
+
+  // ── Toggle média / mediana ─────────────────────────────
+  document.querySelectorAll('.toggle-stat[data-stat]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.toggle-stat[data-stat]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const isMed = btn.dataset.stat === 'media';
+      seasonalChart.setDatasetVisibility(IDX_MEDIA,   isMed);
+      seasonalChart.setDatasetVisibility(IDX_MEDIANA, !isMed);
+      seasonalChart.update();
+    });
+  });
+
+  // ── Gráfico sazonal ────────────────────────────────────
+  const datasets    = [{"label": "2023", "data": [4169.0, 4774.0, 3745.0, 627.0, -1157.0, 2857.0, 2514.0, 4795.0, -1665.0, 3508.0, 320.0, -12997.0], "borderColor": "#2196F3", "backgroundColor": "#2196F322", "borderWidth": 2, "pointRadius": 4, "tension": 0.3, "spanGaps": false, "hidden": true}, {"label": "2024", "data": [5203.0, -2160.0, 1720.0, 1785.0, -713.0, 5603.0, 2081.0, -2774.0, -3983.0, 2790.0, -1157.0, -26961.0], "borderColor": "#4CAF50", "backgroundColor": "#4CAF5022", "borderWidth": 2, "pointRadius": 4, "tension": 0.3, "spanGaps": false, "hidden": true}, {"label": "2025", "data": [-6925.0, -623.0, -8385.0, 7025.0, -1432.0, -4005.0, -496.0, -2308.0, -193.0, 4659.0, -7071.0, -12191.0], "borderColor": "#FF9800", "backgroundColor": "#FF980022", "borderWidth": 2, "pointRadius": 4, "tension": 0.3, "spanGaps": false, "hidden": false}, {"label": "2026", "data": [5067.0, 5389.0, -6350.0, 9202.0, 565.0, 3909.0, -958.0, null, null, null, null, null], "borderColor": "#E53935", "backgroundColor": "#E5393522", "borderWidth": 2, "pointRadius": 4, "tension": 0.3, "spanGaps": false, "hidden": false}, {"label": "M\u00e1ximo 2016\u20132025", "data": [8063.0, 8626.0, 3745.0, 14394.0, 3080.0, 5603.0, 5902.0, 4795.0, 2545.0, 8784.0, 3811.0, -1087.0], "borderColor": "#EF9A9A", "backgroundColor": "transparent", "borderWidth": 1.5, "borderDash": [3, 3], "pointRadius": 2, "tension": 0.3, "spanGaps": true, "hidden": false}, {"label": "M\u00ednimo 2016\u20132025", "data": [-6925.0, -9294.0, -8385.0, -1625.0, -6713.0, -8286.0, -3282.0, -4317.0, -6446.0, -8494.0, -7071.0, -26961.0], "borderColor": "#A5D6A7", "backgroundColor": "transparent", "borderWidth": 1.5, "borderDash": [3, 3], "pointRadius": 2, "tension": 0.3, "spanGaps": true, "hidden": false}, {"label": "M\u00e9dia 2016\u20132025", "data": [1889.5, 97.0, -1377.3, 4726.9, -891.4, -102.0, 998.2, -729.9, -3113.0, 1420.3, -1871.0, -12562.0], "borderColor": "#90A4AE", "backgroundColor": "transparent", "borderWidth": 1.5, "borderDash": [8, 4], "pointRadius": 2, "tension": 0.3, "spanGaps": true, "hidden": true}, {"label": "Mediana 2016\u20132025", "data": [2136.0, -1038.5, -487.5, 5252.5, -935.0, -14.0, 1083.5, -1029.0, -3732.5, 1562.0, -896.5, -12473.5], "borderColor": "#546E7A", "backgroundColor": "transparent", "borderWidth": 1.5, "borderDash": [8, 4], "pointRadius": 2, "tension": 0.3, "spanGaps": true, "hidden": false}];
+  const EXTRA_YEARS = [{"idx": 0, "label": "2023"}, {"idx": 1, "label": "2024"}];  // anos ocultos por padrão
+  const EXTRA_IDX   = new Set(EXTRA_YEARS.map(e => e.idx));
+  // dataset indices: 0..n-1 = years, then Máximo, Mínimo, Média, Mediana
+  const IDX_MEDIA   = datasets.length - 2;
+  const IDX_MEDIANA = datasets.length - 1;
+
+  const seasonalChart = new Chart(document.getElementById('seasonal-chart'), {
+    type: 'line',
+    data: {
+      labels: ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'],
+      datasets: datasets,
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        title: {
+          display: true,
+          text: 'Saldo de Câmbio Contratado — Evolução Mensal (US$ milhões)',
+          font: { size: 14, weight: '600' },
+          color: '#1a3a5c',
+          padding: { bottom: 16 },
+        },
+        legend: {
+          position: 'top',
+          // anos antigos só entram na legenda quando reativados pelos botões
+          labels: { filter: item => !(EXTRA_IDX.has(item.datasetIndex) && item.hidden) },
+        },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const v = ctx.raw;
+              if (v === null || v === undefined) return null;
+              return ctx.dataset.label + ': ' + Math.round(v).toLocaleString('pt-BR');
+            },
+          },
+        },
+      },
+      scales: {
+        y: {
+          ticks: {
+            callback: v => Math.round(v).toLocaleString('pt-BR'),
+          },
+        },
+      },
+    },
+  });
+
+  // ── Botões de anos anteriores (ocultos por padrão) ─────
+  const yearToggles = document.getElementById('year-toggles');
+  if (EXTRA_YEARS.length) {
+    EXTRA_YEARS.forEach(e => {
+      const b = document.createElement('button');
+      b.className = 'toggle-stat';
+      b.textContent = e.label;
+      b.addEventListener('click', () => {
+        const vis = seasonalChart.isDatasetVisible(e.idx);
+        seasonalChart.setDatasetVisibility(e.idx, !vis);
+        b.classList.toggle('active', !vis);
+        seasonalChart.update();
+      });
+      yearToggles.appendChild(b);
+    });
+  } else {
+    yearToggles.style.display = 'none';
+  }
 </script>
 
 </body>
