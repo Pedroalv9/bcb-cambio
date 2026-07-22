@@ -2,17 +2,24 @@ name: Atualizar Dados BCB
 
 on:
   schedule:
-    # Horário de Brasília = UTC-3, então 14:30 BRT = 17:30 UTC.
-    # OBS: o cron do GitHub tem intervalo MÍNIMO de 5 min e não é preciso ao segundo,
-    # por isso o retry a cada minuto (14:30:05 -> 14:35:05) é feito DENTRO do job,
-    # pelo auto_update.py. Aqui só disparamos o job.
-    # Quarta (dia-da-semana 3) e quinta (4). O :45 é uma rede de segurança caso o
-    # agendamento das 14:30 atrase muito ou seja descartado pelo GitHub sob carga.
-    - cron: '30 17 * * 3,4'
-    - cron: '45 17 * * 3,4'
+    # Horário de Brasília = UTC-3, então 14:xx BRT = 17:xx UTC.
+    # OBS: o cron do GitHub tem intervalo MÍNIMO de 5 min, NÃO é preciso ao segundo
+    # e sob carga chega a DESCARTAR execuções agendadas (sem erro). Por isso:
+    #   1) o retry a cada minuto (14:30:05 -> 14:35:05) é feito DENTRO do job pelo
+    #      auto_update.py (aqui só disparamos);
+    #   2) usamos VÁRIAS janelas espalhadas por ~1h como rede de segurança;
+    #   3) evitamos minutos redondos (:00/:30/:45) — são os mais concorridos e os
+    #      que o GitHub mais descarta. Minutos "quebrados" caem com menos frequência.
+    # Como o auto_update.py só publica se a data diária avançou (senão exit 2, sem
+    # commit), rodar várias vezes é idempotente e barato. Quarta (3) e quinta (4)
+    # cobrem feriado de quarta sem precisar de calendário.
+    - cron: '31 17 * * 3,4'    # ~14:31 BRT (janela principal)
+    - cron: '46 17 * * 3,4'    # backup 1
+    - cron: '6 18 * * 3,4'     # backup 2
+    - cron: '36 18 * * 3,4'    # backup 3
   workflow_dispatch:            # rodar manualmente pelo GitHub (aba Actions -> Run workflow)
 
-# Serializa execuções (evita corrida de push entre o disparo das :30 e o backup das :45).
+# Serializa execuções (evita corrida de push entre os disparos das várias janelas).
 concurrency:
   group: atualizar-dados-bcb
   cancel-in-progress: false
