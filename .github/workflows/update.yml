@@ -5,8 +5,9 @@ on:
     # Horário de Brasília = UTC-3, então 14:xx BRT = 17:xx UTC.
     # OBS: o cron do GitHub tem intervalo MÍNIMO de 5 min, NÃO é preciso ao segundo
     # e sob carga chega a DESCARTAR execuções agendadas (sem erro). Por isso:
-    #   1) o retry a cada minuto (14:30:05 -> 14:35:05) é feito DENTRO do job pelo
-    #      auto_update.py (aqui só disparamos);
+    #   1) o disparo PRINCIPAL não é este cron e sim a tarefa local do Windows
+    #      (dispatch.ps1, qua/qui 14:28) — ela é pontual ao segundo. O retry
+    #      (sondagem de 20 em 20s) é feito DENTRO do job pelo auto_update.py;
     #   2) usamos VÁRIAS janelas espalhadas por ~1h como rede de segurança;
     #   3) evitamos minutos redondos (:00/:30/:45) — são os mais concorridos e os
     #      que o GitHub mais descarta. Minutos "quebrados" caem com menos frequência.
@@ -40,11 +41,15 @@ jobs:
       - name: Instalar dependências
         run: pip install -r requirements.txt
 
-      - name: Buscar dados (retry por minuto) e gerar HTML
+      - name: Buscar dados (retry a cada 20s) e gerar HTML
         id: update
         env:
-          MAX_ATTEMPTS: '6'      # 14:30:05 -> 14:35:05
-          RETRY_INTERVAL: '60'
+          # A tarefa local (dispatch.ps1) dispara 14:28; o runner sobe e o python
+          # começa a sondar ~14:28:30, ANTES do BCB publicar. Sondando de 20 em 20s
+          # pegamos a publicação em até 20s (e não até 60s como antes).
+          # 24 x 20s = 8 min de janela -> cobre 14:28:30 até ~14:36:30.
+          MAX_ATTEMPTS: '24'
+          RETRY_INTERVAL: '20'
           INITIAL_DELAY: '5'
         run: |
           set +e
